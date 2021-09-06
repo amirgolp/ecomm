@@ -1,13 +1,17 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const userRepo = require('./repositories/users')
+const cookieSession = require('cookie-session');
+const userRepo = require('./repositories/users');
+
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true}));
+app.use(cookieSession({ keys: [''] }));
 
-app.get('/', (req, res) => {
+app.get('/signup', (req, res) => {
   res.send(`
     <div>
+    Your ID is: ${req.session.userID}
       <form method="POST">
         <input name="email" placehodler="email" />
         <input name="password" placeholder="password" />
@@ -40,7 +44,7 @@ app.get('/', (req, res) => {
 //   res.send('Account created');
 // });
 
-app.post('/', async (req, res) => {
+app.post('/signup', async (req, res) => {
   const { email, password, passwordConfirmation } = req.body;
 
   const existingUser = await userRepo.getOneBy({ email });
@@ -51,7 +55,51 @@ app.post('/', async (req, res) => {
   if (password!==passwordConfirmation) {
     return res.send('Passwords must match!')
   }
+
+  const user = await userRepo.create({ email: email, password:password });
+
+  req.session.userID = user.id;
+
   res.send('Account created');
+});
+
+app.get('/signout', (req, res)=> {
+  req.session = null;
+  res.send('you are successfully signed out!');
+});
+
+app.get('/signin', (req, res)=> {
+  res.send(`
+  <div>
+    <form method="POST">
+      <input name="email" placehodler="email" />
+      <input name="password" placeholder="password" />
+      <button>Sign Up</button>
+    </form>
+  </div>
+  `);
+});
+
+app.post('/signin', async (req, res)=> {
+  const {email, password } = req.body;
+
+  const user = await userRepo.getOneBy({ email });
+
+  if (!user) {
+    return res.send('email not found!');
+  }
+  
+  const validPassowrd = await userRepo.comparePasswords(
+    user.password,
+    password
+  );
+  if (!validPassowrd) {
+    return res.send('passwords don\'t match!');
+  }
+
+  req.session.userID = user.id;
+
+  res.send('you are in!!');
 });
 
 app.listen(3000, () => {
