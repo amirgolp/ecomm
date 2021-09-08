@@ -27,33 +27,30 @@ class UsersRepository {
   }
 
   async create(attrs) {
-
-    attrs.id = this.randomID();
+    attrs.id = this.randomId();
 
     const salt = crypto.randomBytes(8).toString('hex');
     const buf = await scrypt(attrs.password, salt, 64);
 
     const records = await this.getAll();
-    const record = ({
+    const record = {
       ...attrs,
       password: `${buf.toString('hex')}.${salt}`
-    });
-    // console.log(record);
-    // console.log(records);
-
+    };
     records.push(record);
-    // console.log(records);
 
     await this.writeAll(records);
 
-    return attrs;
+    return record;
   }
 
   async comparePasswords(saved, supplied) {
+    // Saved -> password saved in our database. 'hashed.salt'
+    // Supplied -> password given to us by a user trying sign in
     const [hashed, salt] = saved.split('.');
-    const hashedSupplied = await scrypt(supplied, salt, 64);
+    const hashedSuppliedBuf = await scrypt(supplied, salt, 64);
 
-    return hashed===hashedSupplied.toString('hex');
+    return hashed === hashedSuppliedBuf.toString('hex');
   }
 
   async writeAll(records) {
@@ -63,13 +60,13 @@ class UsersRepository {
     );
   }
 
-  randomID() {
-    return crypto.randomBytes(4).toString('hex')
+  randomId() {
+    return crypto.randomBytes(4).toString('hex');
   }
 
   async getOne(id) {
-      const records = await this.getAll();
-      return records.find(record => record.id === id );
+    const records = await this.getAll();
+    return records.find(record => record.id === id);
   }
 
   async delete(id) {
@@ -79,11 +76,11 @@ class UsersRepository {
   }
 
   async update(id, attrs) {
-    const records = this.getAll();
-    const record = records.find(record=> record.id === id);
+    const records = await this.getAll();
+    const record = records.find(record => record.id === id);
 
     if (!record) {
-        throw new Error(`Record with id ${id} not found`);
+      throw new Error(`Record with id ${id} not found`);
     }
 
     Object.assign(record, attrs);
@@ -91,35 +88,22 @@ class UsersRepository {
   }
 
   async getOneBy(filters) {
-      const records = await this.getAll();
+    const records = await this.getAll();
 
-      for (let record of records) {
-          let found = true;
+    for (let record of records) {
+      let found = true;
 
-          for (let key in filters) {
-              if (record[key] !== filters[key]) {
-                  found = false;
-              }
-          }
-
-          if (found) {return record;}
+      for (let key in filters) {
+        if (record[key] !== filters[key]) {
+          found = false;
+        }
       }
+
+      if (found) {
+        return record;
+      }
+    }
   }
 }
-
-// const test = async () => {
-//   const repo = new UsersRepository('users.json');
-
-// //   await repo.create({ email: 'test@test.com', password: 'password' });
-
-// //   const users = await repo.getAll();
-// //   const user = await repo.getOne('daf8f6aa');
-// // await repo.delete('9be1b118');
-// //   console.log(user);
-// const user = await repo.getOneBy({email: 'test@test.com'});
-// console.log(user);
-// };
-
-// test();
 
 module.exports = new UsersRepository('users.json');
